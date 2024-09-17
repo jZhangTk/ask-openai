@@ -1,0 +1,117 @@
+#!/usr/bin/env python
+
+from pynput import keyboard
+from openai import OpenAI
+
+client = OpenAI()
+
+model_in_use = "gpt-4o-mini"
+system_content = "Ask anything."
+messages = [
+    {"role": "system", "content": system_content},
+]
+ctrl_pressed = False
+should_select_model = False
+
+
+def on_press(key):
+    global ctrl_pressed
+    global should_select_model
+
+    try:
+        if key == keyboard.Key.ctrl:
+            ctrl_pressed = True
+        elif ctrl_pressed and key.char == "m":
+            # if Ctrl-M is pressed, select a model
+            should_select_model = True
+    except AttributeError:
+        pass
+
+
+def on_release(key):
+    global ctrl_pressed
+
+    try:
+        if key == keyboard.Key.ctrl:
+            ctrl_pressed = False
+    except AttributeError:
+        pass
+
+
+def get_model(models):
+    try:
+        model_index = input(
+            f"\nEnter the number of the model you want to use: [{model_in_use}] "
+        )
+
+        if model_index == "":
+            return model_in_use
+
+        selected_index = int(model_index)
+
+        # ensure the selected index is within the valid range
+        if 0 <= selected_index < len(models):
+            return models[selected_index].id
+        else:
+            print(
+                f"Invalid selection. Please enter a number between 0 and {len(models) - 1}."
+            )
+            return get_model(models)
+
+    # if the input is not a number, try again
+    except ValueError:
+        print(f"Invalid input. Please enter a number between 0 and {len(models) - 1}.")
+        return get_model(models)
+
+
+def select_model():
+    global model_in_use
+
+    models = client.models.list()
+    # sort models by the 'created'
+    sorted_models = sorted(models.data, key=lambda model: model.created)
+
+    # list the available models
+    for i, model in enumerate(sorted_models):
+        print(f"{i}. {model}")
+
+    # set the model
+    model_in_use = get_model(sorted_models)
+    print(f"Selected model: {model_in_use}\n")
+
+
+def handle_input():
+    global should_select_model
+    should_select_model = False
+
+    input_string = input("Enter your message:\n")
+
+    if should_select_model:
+        select_model()
+    else:
+        # print(input_string)
+        messages.append({"role": "user", "content": input_string})
+
+        completion = client.chat.completions.create(
+            model=model_in_use, messages=messages
+        )
+
+        message = completion.choices[0].message
+        print(f"\nResponse:\n{message.content}\n")
+        messages.append(message)
+
+    handle_input()
+
+
+if __name__ == "__main__":
+    print("Instructions:")
+    print("Press Ctrl-M to change model")
+    print("Press Ctrl-C or Ctrl-D to quit")
+    print(f"\n{system_content}\n")
+
+    with keyboard.Listener(on_press=on_press, on_release=on_release):
+        try:
+            handle_input()
+        except (KeyboardInterrupt, EOFError):  # Ctrl-C or Ctrl-D is pressed
+            print("\nQuitting...")
+            exit(0)
