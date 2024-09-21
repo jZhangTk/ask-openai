@@ -19,10 +19,11 @@ def on_press(key):
     global should_select_model
 
     try:
-        if key == keyboard.Key.ctrl:
+        # `keyboard.Key.ctrl` doesn't work on Windows, hence `ctrl_l` and `ctrl_r`
+        if key == keyboard.Key.ctrl_l or key == keyboard.Key.ctrl_r:
             ctrl_pressed = True
-        elif ctrl_pressed and key.char == "m":
-            # if Ctrl-M is pressed, select a model
+        # Ctrl-M ("\r" is for Windows)
+        elif ctrl_pressed and (key.char == "m" or key.char == "\r"):
             should_select_model = True
     except AttributeError:
         pass
