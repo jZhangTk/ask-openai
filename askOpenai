@@ -1,118 +1,96 @@
 #!/usr/bin/env python
 
-from pynput import keyboard
 from openai import OpenAI
+from prompt_toolkit import PromptSession
+from prompt_toolkit.key_binding import KeyBindings
+from prompt_toolkit.shortcuts.dialogs import input_dialog
+from prompt_toolkit.formatted_text import HTML
 
 client = OpenAI()
+kb = KeyBindings()
 
 model_in_use = "gpt-4o-mini"
 system_content = "Ask anything."
+prompt_message = "Enter your message:"
 messages = [
     {"role": "system", "content": system_content},
 ]
-ctrl_pressed = False
-should_select_model = False
 
 
-def on_press(key):
-    global ctrl_pressed
-    global should_select_model
-
-    try:
-        # `keyboard.Key.ctrl` doesn't work on Windows, hence `ctrl_l` and `ctrl_r`
-        if key == keyboard.Key.ctrl_l or key == keyboard.Key.ctrl_r:
-            ctrl_pressed = True
-        # Ctrl-M ("\r" is for Windows)
-        elif ctrl_pressed and (key.char == "m" or key.char == "\r"):
-            should_select_model = True
-    except AttributeError:
-        pass
-
-
-def on_release(key):
-    global ctrl_pressed
-
-    try:
-        if key == keyboard.Key.ctrl:
-            ctrl_pressed = False
-    except AttributeError:
-        pass
-
-
-def get_model(models):
-    try:
-        model_index = input(
-            f"\nEnter the number of the model you want to use: [{model_in_use}] "
-        )
-
-        if model_index == "":
-            return model_in_use
-
-        selected_index = int(model_index)
-
-        # ensure the selected index is within the valid range
-        if 0 <= selected_index < len(models):
-            return models[selected_index].id
-        else:
-            print(
-                f"Invalid selection. Please enter a number between 0 and {len(models) - 1}."
-            )
-            return get_model(models)
-
-    # if the input is not a number, try again
-    except ValueError:
-        print(f"Invalid input. Please enter a number between 0 and {len(models) - 1}.")
-        return get_model(models)
-
-
-def select_model():
+async def select_model(error_text=""):
     global model_in_use
 
+    # Fetch models (you may want to cache this if it's time-consuming)
     models = client.models.list()
-    # sort models by the 'created'
     sorted_models = sorted(models.data, key=lambda model: model.created)
 
-    # list the available models
-    for i, model in enumerate(sorted_models):
-        print(f"{i}. {model}")
+    # Display the models
+    model_list = "\n".join(f"{i}. {model}" for i, model in enumerate(sorted_models))
+    if error_text:
+        error_formatted = f"<ansired>{error_text}</ansired>\n"
+    else:
+        error_formatted = ""
 
-    # set the model
-    model_in_use = get_model(sorted_models)
-    print(f"Selected model: {model_in_use}\n")
+    # Combine the formatted text
+    text = HTML(
+        f"{model_list}\n\n{error_formatted}Enter the number of the model you want to use: [<ansigreen>{model_in_use}</ansigreen>]"
+    )
+
+    # Show input dialog
+    result = await input_dialog(title="Select Model", text=text).run_async()
+
+    if result is not None:
+        try:
+            selected_index = int(result)
+            if 0 <= selected_index < len(sorted_models):
+                model_in_use = sorted_models[selected_index].id
+                print(f"\nSelected model: {model_in_use}")
+                print(prompt_message)
+            else:
+                return await select_model(
+                    f"Invalid selection. Please enter a number between 0 and {len(sorted_models) - 1}."
+                )
+        except ValueError:
+            return await select_model(
+                f"Invalid input. Please enter a number between 0 and {len(sorted_models) - 1}."
+            )
+
+
+@kb.add("f8")
+def _(event):
+    # You can prevent the character from being added to the input buffer
+    event.app.current_buffer.reset()
+    event.app.create_background_task(select_model())
 
 
 def handle_input():
-    global should_select_model
-    should_select_model = False
+    print(prompt_message)
+    input_string = session.prompt()
 
-    input_string = input("Enter your message:\n")
+    # print(input_string)
+    messages.append({"role": "user", "content": input_string})
+    completion = client.chat.completions.create(
+        model=model_in_use, messages=messages
+    )
 
-    if should_select_model:
-        select_model()
-    else:
-        # print(input_string)
-        messages.append({"role": "user", "content": input_string})
-
-        completion = client.chat.completions.create(
-            model=model_in_use, messages=messages
-        )
-
-        message = completion.choices[0].message
-        print(f"\nResponse:\n{message.content}\n")
-        messages.append(message)
+    message = completion.choices[0].message
+    print(f"\nResponse:\n{message.content}\n")
+    messages.append(message)
 
     handle_input()
 
 
 if __name__ == "__main__":
+    global session
+
     print("Instructions:")
-    print("Press Ctrl-M to change model")
+    print("Press F8 to change model")
     print("Press Ctrl-C or Ctrl-D to quit")
     print(f"\n{system_content}\n")
 
-    with keyboard.Listener(on_press=on_press, on_release=on_release):
-        try:
-            handle_input()
-        except (KeyboardInterrupt, EOFError):  # Ctrl-C or Ctrl-D is pressed
-            print("\nQuitting...")
-            exit(0)
+    try:
+        session = PromptSession(key_bindings=kb)
+        handle_input()
+    except (KeyboardInterrupt, EOFError):  # Ctrl-C or Ctrl-D is pressed
+        print("\nQuitting...")
+        exit(0)
