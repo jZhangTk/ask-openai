@@ -69,18 +69,17 @@ def _(event):
 
 
 def handle_input():
-    print(prompt_message)
-    input_string = session.prompt()
+    while True:
+        print(prompt_message)
+        input_string = session.prompt()
 
-    # print(input_string)
-    messages.append({"role": "user", "content": input_string})
-    completion = client.chat.completions.create(model=model_in_use, messages=messages)
+        # print(input_string)
+        messages.append({"role": "user", "content": input_string})
+        completion = client.chat.completions.create(model=model_in_use, messages=messages)
 
-    message = completion.choices[0].message
-    print(f"\nResponse:\n{message.content}\n")
-    messages.append(message)
-
-    handle_input()
+        message = completion.choices[0].message
+        print(f"\nResponse:\n{message.content}\n")
+        messages.append(message)
 
 
 if __name__ == "__main__":
