@@ -39,27 +39,32 @@ async def select_model(error_text=""):
     # Show input dialog
     result = await input_dialog(title="Select Model", text=text).run_async()
 
-    if result is not None:
-        try:
-            selected_index = int(result)
-            if 0 <= selected_index < len(sorted_models):
-                model_in_use = sorted_models[selected_index].id
-                print(f"\nSelected model: {model_in_use}")
-                print(prompt_message)
-            else:
-                return await select_model(
-                    f"Invalid selection. Please enter a number between 0 and {len(sorted_models) - 1}."
-                )
-        except ValueError:
+    if result is None:
+        print(f"\n\nSelected model: {model_in_use}")
+        print(prompt_message)
+        return model_in_use
+
+    try:
+        selected_index = int(result)
+        if 0 <= selected_index < len(sorted_models):
+            model_in_use = sorted_models[selected_index].id
+            print(f"\n\nSelected model: {model_in_use}")
+            print(prompt_message)
+            return model_in_use
+        else:
             return await select_model(
-                f"Invalid input. Please enter a number between 0 and {len(sorted_models) - 1}."
+                f"Invalid selection. Please enter a number between 0 and {len(sorted_models) - 1}."
             )
+    except ValueError:
+        return await select_model(
+            f"Invalid input. Please enter a number between 0 and {len(sorted_models) - 1}."
+        )
 
 
 @kb.add("f8")
 def _(event):
     # You can prevent the character from being added to the input buffer
-    event.app.current_buffer.reset()
+    # event.app.current_buffer.reset()
     event.app.create_background_task(select_model())
 
 
@@ -69,9 +74,7 @@ def handle_input():
 
     # print(input_string)
     messages.append({"role": "user", "content": input_string})
-    completion = client.chat.completions.create(
-        model=model_in_use, messages=messages
-    )
+    completion = client.chat.completions.create(model=model_in_use, messages=messages)
 
     message = completion.choices[0].message
     print(f"\nResponse:\n{message.content}\n")
