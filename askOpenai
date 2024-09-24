@@ -23,15 +23,16 @@ async def get_model(error_text=""):
     models = client.models.list()
     sorted_models = sorted(models.data, key=lambda model: model.created)
 
-    text = HTML(
+    dialog_text = HTML(
         f"Select the model you want to use: [<ansigreen>{model_in_use}</ansigreen>]"
     )
-    values = list(map(lambda x: (x.id, str(x)), sorted_models))
+    # [(model.id, str(model))]
+    dialog_values = list(map(lambda x: (x.id, str(x)), sorted_models))
 
     result = await radiolist_dialog(
         title="Select Model",
-        text=text,
-        values=values,
+        text=dialog_text,
+        values=dialog_values,
         default=model_in_use,
     ).run_async()
 
@@ -45,10 +46,11 @@ async def select_model():
     global model_in_use
 
     model_in_use = await get_model()
-    text = HTML(f"Selected model: <ansigreen>{model_in_use}</ansigreen>")
-    await message_dialog(title="Model Selected", text=text).run_async()
+    dialog_text = HTML(f"Selected model: <ansigreen>{model_in_use}</ansigreen>")
+    await message_dialog(title="Model Selected", text=dialog_text).run_async()
 
 
+# f8 to select model
 @kb.add("f8")
 def _(event):
     # You can prevent the character from being added to the input buffer
@@ -60,17 +62,19 @@ def handle_input():
     while True:
         # avoid adding '\n' for prompt(). Otherwise, it will cause a display issue for radiolist_dialog.
         print(prompt_message)
-        input_string = prompt(key_bindings=kb, multiline=True)
+        user_content = prompt(key_bindings=kb, multiline=True)
 
-        # print(input_string)
-        messages.append({"role": "user", "content": input_string})
+        # print(user_content)
+        # append the user's message to the messages list
+        messages.append({"role": "user", "content": user_content})
         completion = client.chat.completions.create(
             model=model_in_use, messages=messages
         )
 
-        message = completion.choices[0].message
-        print(f"\nResponse:\n{message.content}\n")
-        messages.append(message)
+        completion_message = completion.choices[0].message
+        print(f"\nResponse:\n{completion_message.content}\n")
+        # append the assistant's response to the messages list
+        messages.append(completion_message)
 
 
 if __name__ == "__main__":
