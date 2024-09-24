@@ -75,8 +75,10 @@ def handle_input():
 
 if __name__ == "__main__":
     print("Instructions:")
-    print("Press F8 to change model")
-    print("Press Ctrl-C or Ctrl-D to quit")
+    print("- Press Enter to insert a new line")
+    print("- Press Alt-Enter (or Escape followed by Enter) to send a message")
+    print("- Press F8 to change model")
+    print("- Press Ctrl-C or Ctrl-D to quit")
     print(f"\n{system_content}\n")
 
     try:
