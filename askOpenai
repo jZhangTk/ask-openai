@@ -4,6 +4,7 @@ from openai import OpenAI
 from prompt_toolkit import prompt
 from prompt_toolkit.formatted_text import HTML
 from prompt_toolkit.key_binding import KeyBindings
+from prompt_toolkit.shortcuts import message_dialog
 from prompt_toolkit.shortcuts.dialogs import input_dialog
 from prompt_toolkit.validation import Validator, ValidationError
 
@@ -37,9 +38,7 @@ class NumberValidator(Validator):
             )
 
 
-async def select_model(error_text=""):
-    global model_in_use
-
+async def get_model(error_text=""):
     # Fetch models (you may want to cache this if it's time-consuming)
     models = client.models.list()
     sorted_models = sorted(models.data, key=lambda model: model.created)
@@ -62,25 +61,28 @@ async def select_model(error_text=""):
     ).run_async()
 
     if result is None:
-        print(f"\n\nSelected model: {model_in_use}")
-        print(prompt_message)
         return model_in_use
 
     try:
         selected_index = int(result)
         if 0 <= selected_index < len(sorted_models):
-            model_in_use = sorted_models[selected_index].id
-            print(f"\n\nSelected model: {model_in_use}")
-            print(prompt_message)
-            return model_in_use
+            return sorted_models[selected_index].id
         else:
-            return await select_model(
+            return await get_model(
                 f"Invalid selection. Please enter a number between 0 and {len(sorted_models) - 1}."
             )
     except ValueError:
-        return await select_model(
+        return await get_model(
             f"Invalid input. Please enter a number between 0 and {len(sorted_models) - 1}."
         )
+
+
+async def select_model():
+    global model_in_use
+
+    model_in_use = await get_model()
+    text = HTML(f"Selected model: <ansigreen>{model_in_use}</ansigreen>")
+    await message_dialog(title="Model Selected", text=text).run_async()
 
 
 @kb.add("f8")
