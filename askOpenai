@@ -70,7 +70,7 @@ def _(event):
 
 def handle_input():
     while True:
-        input_string = prompt(f"{prompt_message}\n", key_bindings=kb)
+        input_string = prompt(f"{prompt_message}\n", key_bindings=kb, multiline=True)
 
         # print(input_string)
         messages.append({"role": "user", "content": input_string})
