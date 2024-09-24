@@ -5,8 +5,7 @@ from prompt_toolkit import prompt
 from prompt_toolkit.formatted_text import HTML
 from prompt_toolkit.key_binding import KeyBindings
 from prompt_toolkit.shortcuts import message_dialog
-from prompt_toolkit.shortcuts.dialogs import input_dialog
-from prompt_toolkit.validation import Validator, ValidationError
+from prompt_toolkit.shortcuts import radiolist_dialog
 
 client = OpenAI()
 kb = KeyBindings()
@@ -19,62 +18,27 @@ messages = [
 ]
 
 
-class NumberValidator(Validator):
-    def validate(self, document):
-        text = document.text
-
-        if text and not text.isdigit():
-            i = 0
-
-            # Get index of first non numeric character.
-            # We want to move the cursor here.
-            for i, c in enumerate(text):
-                if not c.isdigit():
-                    break
-
-            raise ValidationError(
-                message="This input contains non-numeric characters",
-                cursor_position=i + 1,  # +1 so we can use backspace
-            )
-
-
 async def get_model(error_text=""):
     # Fetch models (you may want to cache this if it's time-consuming)
     models = client.models.list()
     sorted_models = sorted(models.data, key=lambda model: model.created)
 
-    # Display the models
-    model_list = "\n".join(f"{i}. {model}" for i, model in enumerate(sorted_models))
-    if error_text:
-        error_formatted = f"<ansired>{error_text}</ansired>\n"
-    else:
-        error_formatted = ""
-
-    # Combine the formatted text
     text = HTML(
-        f"{model_list}\n\n{error_formatted}Enter the number of the model you want to use: [<ansigreen>{model_in_use}</ansigreen>]"
+        f"Select the model you want to use: [<ansigreen>{model_in_use}</ansigreen>]"
     )
+    values = list(map(lambda x: (x.id, str(x)), sorted_models))
 
-    # Show input dialog
-    result = await input_dialog(
-        title="Select Model", text=text, validator=NumberValidator()
+    result = await radiolist_dialog(
+        title="Select Model",
+        text=text,
+        values=values,
+        default=model_in_use,
     ).run_async()
 
     if result is None:
         return model_in_use
 
-    try:
-        selected_index = int(result)
-        if 0 <= selected_index < len(sorted_models):
-            return sorted_models[selected_index].id
-        else:
-            return await get_model(
-                f"Invalid selection. Please enter a number between 0 and {len(sorted_models) - 1}."
-            )
-    except ValueError:
-        return await get_model(
-            f"Invalid input. Please enter a number between 0 and {len(sorted_models) - 1}."
-        )
+    return result
 
 
 async def select_model():
