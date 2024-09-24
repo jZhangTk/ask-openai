@@ -5,6 +5,7 @@ from prompt_toolkit import prompt
 from prompt_toolkit.formatted_text import HTML
 from prompt_toolkit.key_binding import KeyBindings
 from prompt_toolkit.shortcuts.dialogs import input_dialog
+from prompt_toolkit.validation import Validator, ValidationError
 
 client = OpenAI()
 kb = KeyBindings()
@@ -15,6 +16,25 @@ prompt_message = "Enter your message:"
 messages = [
     {"role": "system", "content": system_content},
 ]
+
+
+class NumberValidator(Validator):
+    def validate(self, document):
+        text = document.text
+
+        if text and not text.isdigit():
+            i = 0
+
+            # Get index of first non numeric character.
+            # We want to move the cursor here.
+            for i, c in enumerate(text):
+                if not c.isdigit():
+                    break
+
+            raise ValidationError(
+                message="This input contains non-numeric characters",
+                cursor_position=i + 1,  # +1 so we can use backspace
+            )
 
 
 async def select_model(error_text=""):
@@ -37,7 +57,9 @@ async def select_model(error_text=""):
     )
 
     # Show input dialog
-    result = await input_dialog(title="Select Model", text=text).run_async()
+    result = await input_dialog(
+        title="Select Model", text=text, validator=NumberValidator()
+    ).run_async()
 
     if result is None:
         print(f"\n\nSelected model: {model_in_use}")
