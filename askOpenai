@@ -12,7 +12,6 @@ kb = KeyBindings()
 
 model_in_use = "gpt-4o-mini"
 system_content = "Ask anything."
-prompt_message = "Enter your message:"
 messages = [
     {"role": "system", "content": system_content},
 ]
@@ -61,7 +60,7 @@ def _(event):
 def handle_input():
     while True:
         # avoid adding '\n' for prompt(). Otherwise, it will cause a display issue for radiolist_dialog.
-        print(prompt_message)
+        print("\nEnter your message:")
         user_content = prompt(key_bindings=kb, multiline=True)
 
         # print(user_content)
@@ -72,7 +71,7 @@ def handle_input():
         )
 
         completion_message = completion.choices[0].message
-        print(f"\nResponse:\n{completion_message.content}\n")
+        print(f"\n\nResponse:\n{completion_message.content}\n")
         # append the assistant's response to the messages list
         messages.append(completion_message)
 
